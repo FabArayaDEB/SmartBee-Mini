@@ -98,16 +98,16 @@ function ApicultorDashboard() {
               onChange={(e) => setSelectedPeriod(e.target.value)}
               className="form-input"
             >
-              <option value="day">Último día</option>
-              <option value="week">Última semana</option>
-              <option value="month">Último mes</option>
+              <option key="period-day" value="day">Último día</option>
+              <option key="period-week" value="week">Última semana</option>
+              <option key="period-month" value="month">Último mes</option>
             </select>
           </div>
         </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="widget">
+          <div key="widget-colmenas" className="widget">
             <div className="widget-header">
               <h3 className="widget-title">Total Colmenas</h3>
               <div className="p-2 bg-primary-100 rounded-lg">
@@ -122,7 +122,7 @@ function ApicultorDashboard() {
             </div>
           </div>
 
-          <div className="widget">
+          <div key="widget-ambientales" className="widget">
             <div className="widget-header">
               <h3 className="widget-title">Nodos Ambientales</h3>
               <div className="p-2 bg-secondary-100 rounded-lg">
@@ -137,7 +137,7 @@ function ApicultorDashboard() {
             </div>
           </div>
 
-          <div className="widget">
+          <div key="widget-online" className="widget">
             <div className="widget-header">
               <h3 className="widget-title">Nodos Online</h3>
               <div className="p-2 bg-success-100 rounded-lg">
@@ -154,7 +154,7 @@ function ApicultorDashboard() {
             </div>
           </div>
 
-          <div className="widget">
+          <div key="widget-alertas" className="widget">
             <div className="widget-header">
               <h3 className="widget-title">Alertas Activas</h3>
               <div className="p-2 bg-warning-100 rounded-lg">
@@ -199,6 +199,7 @@ function ApicultorDashboard() {
                       {data ? (
                         <div className="space-y-4">
                           <SensorWidget
+                            key={`${node.nodeId}-temperature`}
                             label="Temperatura"
                             value={data.data?.temperature || data.temperature}
                             unit="°C"
@@ -206,6 +207,7 @@ function ApicultorDashboard() {
                             color="text-danger-600"
                           />
                           <SensorWidget
+                            key={`${node.nodeId}-humidity`}
                             label="Humedad"
                             value={data.data?.humidity || data.humidity}
                             unit="%"
@@ -214,6 +216,7 @@ function ApicultorDashboard() {
                           />
                           {node.type === 'colmena' && data.data?.weight && (
                             <SensorWidget
+                              key={`${node.nodeId}-weight`}
                               label="Peso"
                               value={data.data.weight}
                               unit="kg"

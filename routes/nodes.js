@@ -1,69 +1,80 @@
-const express = require('express');
-const db = require('../config/database');
-const { auth, adminAuth, nodeOwnership } = require('../middleware/auth');
+// Importaciones necesarias para el manejo de rutas de nodos
+const express = require('express'); // Framework web para Node.js
+const db = require('../config/database'); // Configuración de conexión a base de datos
+const { auth, adminAuth, nodeOwnership } = require('../middleware/auth'); // Middlewares de autenticación y autorización
 
+// Crear router de Express para manejar rutas de nodos
 const router = express.Router();
 
-// @route   GET /api/nodes
-// @desc    Get all nodes (admin) or user's nodes
-// @access  Private
+// @ruta   GET /api/nodes
+// @desc   Obtener todos los nodos (admin) o nodos del usuario
+// @acceso Privado - requiere autenticación
 router.get('/', auth, async (req, res) => {
   try {
+    // Extraer parámetros de consulta con valores por defecto
     const { page = 1, limit = 10, tipo = '', activo = '' } = req.query;
     
+    // Construir cláusula WHERE dinámicamente
     let whereClause = 'WHERE 1=1';
     let params = [];
     
-    // If not admin, only show user's nodes (for now, show all nodes)
-    // TODO: Implement node ownership logic
+    // Si no es admin, mostrar solo nodos del usuario
+    if (req.user.role !== 'admin') {
+      whereClause += ' AND EXISTS (SELECT 1 FROM nodo_colmena nc JOIN colmena c ON nc.colmena_id = c.id WHERE nc.nodo_id = n.id AND c.dueno = ?)';
+      params.push(req.user.userId);
+    }
     
+    // Filtrar por tipo de nodo si se especifica
     if (tipo) {
       whereClause += ' AND n.tipo = ?';
       params.push(tipo);
     }
     
+    // Filtrar por estado activo/inactivo si se especifica
     if (activo !== '') {
       whereClause += ' AND n.activo = ?';
       params.push(activo);
     }
     
+    // Calcular offset para paginación
     const offset = (page - 1) * limit;
     
-    // Get nodes with their latest data
+    // Obtener nodos con sus datos más recientes
+    // Consulta SQL para obtener nodos con información completa
     const [nodes] = await db.execute(`
       SELECT 
-        n.id,
-        n.descripcion,
-        n.tipo,
-        n.activo,
-        nt.descripcion as tipo_descripcion,
-        ul.latitud,
-        ul.longitud,
-        ul.descripcion as ubicacion_descripcion,
-        ul.comuna,
+        n.id,                                    -- ID único del nodo
+        n.descripcion,                           -- Descripción del nodo
+        n.tipo,                                  -- Tipo de nodo
+        n.activo,                                -- Estado activo/inactivo
+        nt.descripcion as tipo_descripcion,     -- Descripción del tipo de nodo
+        ul.latitud,                              -- Coordenada latitud
+        ul.longitud,                             -- Coordenada longitud
+        ul.descripcion as ubicacion_descripcion, -- Descripción de ubicación
+        ul.comuna,                               -- Comuna donde se ubica
         (
-          SELECT nm.payload 
+          SELECT nm.payload                      -- Último mensaje recibido
           FROM nodo_mensaje nm 
           WHERE nm.nodo_id = n.id 
           ORDER BY nm.fecha DESC 
           LIMIT 1
         ) as ultimo_mensaje,
         (
-          SELECT nm.fecha 
+          SELECT nm.fecha                        -- Fecha del último mensaje
           FROM nodo_mensaje nm 
           WHERE nm.nodo_id = n.id 
           ORDER BY nm.fecha DESC 
           LIMIT 1
         ) as ultima_fecha
       FROM nodo n
-      LEFT JOIN nodo_tipo nt ON n.tipo = nt.tipo
-      LEFT JOIN nodo_ubicacion ul ON n.id = ul.nodo_id AND ul.activo = 1
+      LEFT JOIN nodo_tipo nt ON n.tipo = nt.tipo                    -- Unir con tipos de nodo
+      LEFT JOIN nodo_ubicacion ul ON n.id = ul.nodo_id AND ul.activo = 1  -- Unir con ubicaciones activas
       ${whereClause}
       ORDER BY n.id
-      LIMIT ? OFFSET ?
+      LIMIT ? OFFSET ?                                               -- Paginación
     `, [...params, parseInt(limit), offset]);
     
-    // Get total count
+    // Obtener conteo total de nodos para paginación
     const [countResult] = await db.execute(`
       SELECT COUNT(*) as total
       FROM nodo n
@@ -72,17 +83,19 @@ router.get('/', auth, async (req, res) => {
     
     const total = countResult[0].total;
     
-    // Parse latest message JSON if exists
+    // Procesar datos de nodos y parsear JSON del último mensaje
     const nodesWithParsedData = nodes.map(node => {
       let latestData = null;
+      // Intentar parsear el último mensaje JSON si existe
       if (node.ultimo_mensaje) {
         try {
           latestData = JSON.parse(node.ultimo_mensaje);
         } catch (e) {
-          console.error('Error parsing message JSON:', e);
+          console.error('Error al parsear JSON del mensaje:', e);
         }
       }
       
+      // Estructurar datos del nodo con formato consistente
       return {
         id: node.id,
         descripcion: node.descripcion,
@@ -95,22 +108,24 @@ router.get('/', auth, async (req, res) => {
           descripcion: node.ubicacion_descripcion,
           comuna: node.comuna
         },
-        ultimo_mensaje: latestData,
+        ultimo_mensaje: latestData,    // Datos parseados del sensor
         ultima_fecha: node.ultima_fecha
       };
     });
     
+    // Responder con datos estructurados y información de paginación
     res.json({
       success: true,
       nodes: nodesWithParsedData,
       pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total
+        current: parseInt(page),        // Página actual
+        pages: Math.ceil(total / limit), // Total de páginas
+        total                           // Total de registros
       }
     });
     
   } catch (error) {
+    // Manejar errores de base de datos o del servidor
     console.error('Error obteniendo nodos:', error);
     res.status(500).json({
       success: false,
@@ -119,21 +134,22 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/nodes/:nodeId
-// @desc    Get node by ID
-// @access  Private
+// @ruta   GET /api/nodes/:nodeId
+// @desc   Obtener nodo específico por ID
+// @acceso Privado - requiere autenticación y propiedad del nodo
 router.get('/:nodeId', auth, nodeOwnership, async (req, res) => {
   try {
+    // El nodo ya fue validado por el middleware nodeOwnership
     const node = req.node;
     
-    // Get latest sensor data
+    // Obtener los datos más recientes del sensor
     const [latestDataRows] = await db.execute(
       'SELECT * FROM datos_sensores WHERE nodo_id = ? ORDER BY fecha DESC LIMIT 1',
       [node.id]
     );
     const latestData = latestDataRows[0] || null;
     
-    // Get data count for last 24 hours
+    // Obtener conteo de datos de las últimas 24 horas
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [countRows] = await db.execute(
       'SELECT COUNT(*) as count FROM datos_sensores WHERE nodo_id = ? AND fecha >= ?',
@@ -141,16 +157,18 @@ router.get('/:nodeId', auth, nodeOwnership, async (req, res) => {
     );
     const dataCount24h = countRows[0].count;
     
+    // Responder con información completa del nodo
     res.json({
       success: true,
       node: {
         ...node.toObject(),
-        latestData,
-        dataCount24h
+        latestData,      // Últimos datos del sensor
+        dataCount24h     // Cantidad de datos en 24h
       }
     });
     
   } catch (error) {
+    // Manejar errores al obtener información del nodo
     console.error('Error obteniendo nodo:', error);
     res.status(500).json({
       success: false,
@@ -159,14 +177,15 @@ router.get('/:nodeId', auth, nodeOwnership, async (req, res) => {
   }
 });
 
-// @route   POST /api/nodes
-// @desc    Create new node
-// @access  Private/Admin
+// @ruta   POST /api/nodes
+// @desc   Crear nuevo nodo en el sistema
+// @acceso Privado/Admin - solo administradores
 router.post('/', auth, adminAuth, async (req, res) => {
   try {
+    // Extraer datos del cuerpo de la petición
     const {
-      nodeId,
-      name,
+      nodeId,    // ID único del nodo
+      name,      // Nombre descriptivo
       type,
       description,
       location,

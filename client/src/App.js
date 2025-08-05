@@ -1,95 +1,111 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+// Importaciones principales de React y librerías de enrutamiento
+import React from 'react'; // Librería principal de React
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; // Enrutamiento SPA
+import { ToastContainer } from 'react-toastify'; // Notificaciones toast
+import 'react-toastify/dist/ReactToastify.css'; // Estilos para notificaciones
 
-import { AuthProvider } from './contexts/AuthContext';
-import { SocketProvider } from './contexts/SocketContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import AdminRoute from './components/AdminRoute';
+// Proveedores de contexto para estado global
+import { AuthProvider } from './contexts/AuthContext'; // Contexto de autenticación
+import { SocketProvider } from './contexts/SocketContext'; // Contexto de WebSocket para tiempo real
 
-// Pages
-import Login from './pages/Login';
-import AdminDashboard from './pages/AdminDashboard';
-import ApicultorDashboard from './pages/ApicultorDashboard';
-import UserManagement from './pages/UserManagement';
-import NodeManagement from './pages/NodeManagement';
-import NodeDetails from './pages/NodeDetails';
-import AlertsPage from './pages/AlertsPage';
-import Profile from './pages/Profile';
+// Componentes de protección de rutas
+import ProtectedRoute from './components/ProtectedRoute'; // Rutas que requieren autenticación
+import AdminRoute from './components/AdminRoute'; // Rutas exclusivas para administradores
 
-// Styles
+// Páginas de la aplicación
+import Login from './pages/Login'; // Página de inicio de sesión
+import AdminDashboard from './pages/AdminDashboard'; // Dashboard para administradores
+import ApicultorDashboard from './pages/ApicultorDashboard'; // Dashboard para apicultores
+import UserManagement from './pages/UserManagement'; // Gestión de usuarios (admin)
+import NodeManagement from './pages/NodeManagement'; // Gestión de nodos IoT
+import NodeDetails from './pages/NodeDetails'; // Detalles específicos de un nodo
+import AlertsPage from './pages/AlertsPage'; // Página de alertas del sistema
+import Profile from './pages/Profile'; // Perfil de usuario
+
+// Estilos globales de la aplicación
 import './index.css';
 
+// Componente principal de la aplicación SmartBee Mini
 function App() {
   return (
+    // Proveedor de contexto de autenticación (envuelve toda la app)
     <AuthProvider>
+      {/* Proveedor de contexto de WebSocket para comunicación en tiempo real */}
       <SocketProvider>
+        {/* Router principal para navegación SPA */}
         <Router>
           <div className="App min-h-screen bg-gray-50">
             <Routes>
-              {/* Public Routes */}
+              {/* Rutas públicas - no requieren autenticación */}
               <Route path="/login" element={<Login />} />
               
-              {/* Protected Routes */}
+              {/* Rutas protegidas - requieren autenticación */}
+              {/* Redirección de raíz a dashboard */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <Navigate to="/dashboard" replace />
                 </ProtectedRoute>
               } />
               
+              {/* Dashboard principal - redirige según rol de usuario */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <DashboardRouter />
                 </ProtectedRoute>
               } />
               
+              {/* Página de perfil de usuario */}
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
               } />
               
+              {/* Página de alertas del sistema */}
               <Route path="/alerts" element={
                 <ProtectedRoute>
                   <AlertsPage />
                 </ProtectedRoute>
               } />
               
+              {/* Detalles específicos de un nodo IoT */}
               <Route path="/node/:nodeId" element={
                 <ProtectedRoute>
                   <NodeDetails />
                 </ProtectedRoute>
               } />
               
-              {/* Admin Only Routes */}
+              {/* Rutas exclusivas para administradores */}
+              {/* Gestión de usuarios del sistema */}
               <Route path="/admin/users" element={
                 <AdminRoute>
                   <UserManagement />
                 </AdminRoute>
               } />
               
+              {/* Gestión de nodos IoT */}
               <Route path="/admin/nodes" element={
                 <AdminRoute>
                   <NodeManagement />
                 </AdminRoute>
               } />
               
-              {/* Catch all route */}
+              {/* Ruta catch-all - redirige rutas no encontradas al dashboard */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
             
+            {/* Contenedor de notificaciones toast */}
             <ToastContainer
-              position="top-right"
-              autoClose={5000}
-              hideProgressBar={false}
-              newestOnTop={false}
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="light"
+              position="top-right"      // Posición en pantalla
+              autoClose={5000}          // Auto-cerrar después de 5 segundos
+              hideProgressBar={false}   // Mostrar barra de progreso
+              newestOnTop={false}       // Nuevas notificaciones abajo
+              closeOnClick              // Cerrar al hacer clic
+              rtl={false}               // Dirección de texto izquierda a derecha
+              pauseOnFocusLoss          // Pausar cuando se pierde el foco
+              draggable                 // Permitir arrastrar
+              pauseOnHover              // Pausar al pasar el mouse
+              theme="light"             // Tema claro
             />
           </div>
         </Router>
@@ -98,14 +114,19 @@ function App() {
   );
 }
 
-// Component to route to appropriate dashboard based on user role
+// Componente para enrutar al dashboard apropiado según el rol del usuario
 function DashboardRouter() {
+  // Obtener información del usuario autenticado desde el contexto
   const { user } = React.useContext(require('./contexts/AuthContext').AuthContext);
   
+  // Si no hay usuario autenticado, redirigir al login
   if (!user) {
     return <Navigate to="/login" replace />;
   }
   
+  // Redirigir al dashboard apropiado según el rol del usuario
+  // Admin: Dashboard administrativo con gestión completa del sistema
+  // Apicultor: Dashboard específico para monitoreo de colmenas
   return user.role === 'admin' ? <AdminDashboard /> : <ApicultorDashboard />;
 }
 

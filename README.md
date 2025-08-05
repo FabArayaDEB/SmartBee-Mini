@@ -1,6 +1,15 @@
-# SmartBee Mini - Sistema de Monitoreo de Colmenas
+# SmartBee Mini
 
-Sistema inteligente para el monitoreo en tiempo real de colmenas de abejas utilizando sensores IoT, desarrollado con Node.js, React y MySQL.
+Un sistema integral de monitoreo de colmenas basado en IoT que permite el seguimiento en tiempo real de las condiciones de las colmenas a través de la recopilación de datos de sensores y visualización basada en web.
+
+## Características
+
+- **Monitoreo en Tiempo Real**: Datos en vivo de sensores de colmenas incluyendo temperatura, humedad y peso
+- **Gestión de Usuarios**: Control de acceso basado en roles (Administrador/Apicultor)
+- **Sistema de Alertas**: Notificaciones automatizadas para condiciones anómalas de las colmenas
+- **Visualización de Datos**: Gráficos interactivos para análisis de datos históricos
+- **Integración MQTT**: Protocolo de comunicación IoT eficiente para datos de sensores
+- **Diseño Responsivo**: Interfaz web amigable para dispositivos móviles
 
 ## 📋 Requisitos Previos
 

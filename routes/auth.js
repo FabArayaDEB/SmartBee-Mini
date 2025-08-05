@@ -1,19 +1,24 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const db = require('../config/database');
-const { auth } = require('../middleware/auth');
+// Importación de librerías y módulos necesarios
+const express = require('express');           // Framework web para crear rutas
+const jwt = require('jsonwebtoken');          // Para generar y verificar tokens JWT
+const bcrypt = require('bcryptjs');           // Para encriptar y verificar contraseñas
+const db = require('../config/database');     // Conexión a la base de datos
+const { auth } = require('../middleware/auth'); // Middleware de autenticación
 
+// Crear router de Express para las rutas de autenticación
 const router = express.Router();
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
-// @access  Public (but only admins can create other users)
+/**
+ * @route   POST /api/auth/register
+ * @desc    Registrar un nuevo usuario en el sistema
+ * @access  Público (pero solo administradores pueden crear otros usuarios)
+ * @body    { id, password, role, nombre, apellido }
+ */
 router.post('/register', async (req, res) => {
   try {
     const { id, password, role, nombre, apellido } = req.body;
     
-    // Check if user already exists
+    // Verificar si el usuario ya existe en la base de datos
     const [existingUsers] = await db.execute(
       'SELECT id FROM usuario WHERE id = ?',
       [id]
@@ -26,20 +31,20 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    // Hash password
+    // Encriptar la contraseña usando bcrypt (factor de costo: 10)
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Create new user
+    // Crear el nuevo usuario en la base de datos
     await db.execute(
       'INSERT INTO usuario (id, clave, nombre, apellido, rol, activo) VALUES (?, ?, ?, ?, ?, ?)',
       [id, hashedPassword, nombre, apellido, role || 'apicultor', 1]
     );
     
-    // Generate JWT token
+    // Generar token JWT para autenticación automática después del registro
     const token = jwt.sign(
       { userId: id, role: role || 'apicultor' },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '24h' }  // Token válido por 24 horas
     );
     
     res.status(201).json({
@@ -63,14 +68,17 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// @route   POST /api/auth/login
-// @desc    Login user
-// @access  Public
+/**
+ * @route   POST /api/auth/login
+ * @desc    Iniciar sesión de usuario
+ * @access  Público
+ * @body    { username, password }
+ */
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    // Validate required fields
+    // Validar que se proporcionaron los campos requeridos
     if (!username || !password) {
       return res.status(400).json({
         success: false,
@@ -78,12 +86,13 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // Find user by nombre (first name)
+    // Buscar usuario por nombre (campo 'nombre' en la base de datos)
     const [users] = await db.execute(
       'SELECT id, clave, nombre, apellido, rol FROM usuario WHERE nombre = ? AND activo = 1',
       [username]
     );
     
+    // Verificar que el usuario existe y está activo
     if (users.length === 0) {
       return res.status(401).json({
         success: false,
@@ -93,7 +102,7 @@ router.post('/login', async (req, res) => {
     
     const user = users[0];
     
-    // Check password
+    // Verificar la contraseña comparando con el hash almacenado
     const isMatch = await bcrypt.compare(password, user.clave);
     
     if (!isMatch) {
@@ -103,11 +112,11 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // Generate JWT token
+    // Generar token JWT para la sesión del usuario
     const token = jwt.sign(
       { userId: user.id, role: user.rol },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '24h' }  // Token válido por 24 horas
     );
     
     res.json({

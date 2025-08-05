@@ -1,53 +1,57 @@
-const express = require('express');
-const moment = require('moment');
-const db = require('../config/database');
-const { auth, nodeOwnership } = require('../middleware/auth');
+// Importaciones necesarias para el manejo de rutas de datos
+const express = require('express'); // Framework web para Node.js
+const moment = require('moment'); // Librería para manejo de fechas y tiempo
+const db = require('../config/database'); // Configuración de conexión a base de datos
+const { auth, nodeOwnership } = require('../middleware/auth'); // Middlewares de autenticación
 
+// Crear router de Express para manejar rutas de datos de sensores
 const router = express.Router();
 
-// @route   GET /api/data/latest
-// @desc    Get latest data from all user's nodes
-// @access  Private
+// @ruta   GET /api/data/latest
+// @desc   Obtener los datos más recientes de todos los nodos del usuario
+// @acceso Privado - requiere autenticación
 router.get('/latest', auth, async (req, res) => {
   try {
-    // Get latest data for each node
+    // Consulta SQL para obtener los datos más recientes de cada nodo activo
     const [latestData] = await db.execute(`
       SELECT 
-        n.id as nodo_id,
-        n.descripcion as nodo_descripcion,
-        n.tipo,
-        nt.descripcion as tipo_descripcion,
-        nm.payload,
-        nm.fecha,
-        ul.latitud,
-        ul.longitud,
-        ul.descripcion as ubicacion_descripcion
+        n.id as nodo_id,                           -- ID del nodo
+        n.descripcion as nodo_descripcion,         -- Descripción del nodo
+        n.tipo,                                     -- Tipo de nodo
+        nt.descripcion as tipo_descripcion,        -- Descripción del tipo
+        nm.payload,                                 -- Datos del sensor en JSON
+        nm.fecha,                                   -- Fecha del último mensaje
+        ul.latitud,                                 -- Coordenada latitud
+        ul.longitud,                                -- Coordenada longitud
+        ul.descripcion as ubicacion_descripcion    -- Descripción de ubicación
       FROM nodo n
-      LEFT JOIN nodo_tipo nt ON n.tipo = nt.tipo
-      LEFT JOIN nodo_ubicacion ul ON n.id = ul.nodo_id AND ul.activo = 1
+      LEFT JOIN nodo_tipo nt ON n.tipo = nt.tipo                    -- Unir con tipos de nodo
+      LEFT JOIN nodo_ubicacion ul ON n.id = ul.nodo_id AND ul.activo = 1  -- Unir con ubicaciones activas
       LEFT JOIN (
         SELECT 
           nodo_id,
           payload,
           fecha,
-          ROW_NUMBER() OVER (PARTITION BY nodo_id ORDER BY fecha DESC) as rn
+          ROW_NUMBER() OVER (PARTITION BY nodo_id ORDER BY fecha DESC) as rn  -- Numerar mensajes por nodo
         FROM nodo_mensaje
-      ) nm ON n.id = nm.nodo_id AND nm.rn = 1
-      WHERE n.activo = 1
+      ) nm ON n.id = nm.nodo_id AND nm.rn = 1      -- Solo el mensaje más reciente (rn=1)
+      WHERE n.activo = 1                           -- Solo nodos activos
       ORDER BY n.id
     `);
     
-    // Parse JSON payloads
+    // Procesar y parsear los datos JSON de los sensores
     const parsedData = latestData.map(row => {
       let sensorData = null;
+      // Intentar parsear el payload JSON si existe
       if (row.payload) {
         try {
           sensorData = JSON.parse(row.payload);
         } catch (e) {
-          console.error('Error parsing sensor data JSON:', e);
+          console.error('Error al parsear JSON de datos del sensor:', e);
         }
       }
       
+      // Estructurar datos de respuesta con formato consistente
       return {
         nodo_id: row.nodo_id,
         nodo_descripcion: row.nodo_descripcion,
@@ -58,17 +62,19 @@ router.get('/latest', auth, async (req, res) => {
           longitud: row.longitud,
           descripcion: row.ubicacion_descripcion
         },
-        datos_sensor: sensorData,
-        fecha: row.fecha
+        datos_sensor: sensorData,    // Datos parseados del sensor (temperatura, humedad, etc.)
+        fecha: row.fecha              // Timestamp del último mensaje
       };
-    }).filter(data => data.datos_sensor !== null);
+    }).filter(data => data.datos_sensor !== null); // Filtrar solo nodos con datos válidos
     
+    // Responder con datos estructurados
     res.json({
       success: true,
       data: parsedData
     });
     
   } catch (error) {
+    // Manejar errores al obtener datos más recientes
     console.error('Error obteniendo datos más recientes:', error);
     res.status(500).json({
       success: false,
@@ -77,16 +83,18 @@ router.get('/latest', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/data/node/:nodeId/latest
-// @desc    Get latest data from specific node
-// @access  Private
+// @ruta   GET /api/data/node/:nodeId/latest
+// @desc   Obtener los datos más recientes de un nodo específico
+// @acceso Privado - requiere autenticación y propiedad del nodo
 router.get('/node/:nodeId/latest', auth, nodeOwnership, async (req, res) => {
   try {
+    // Consulta para obtener el último registro de datos del nodo específico
     const [latestDataRows] = await db.execute(
       'SELECT ds.*, n.descripcion as node_name, n.tipo as node_type FROM datos_sensores ds LEFT JOIN nodos n ON ds.nodo_id = n.id WHERE ds.nodo_id = ? ORDER BY ds.fecha DESC LIMIT 1',
       [req.params.nodeId]
     );
     
+    // Verificar si se encontraron datos para el nodo
     if (latestDataRows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -96,12 +104,14 @@ router.get('/node/:nodeId/latest', auth, nodeOwnership, async (req, res) => {
     
     const latestData = latestDataRows[0];
     
+    // Responder con los datos más recientes del nodo
     res.json({
       success: true,
       data: latestData
     });
     
   } catch (error) {
+    // Manejar errores al obtener datos específicos del nodo
     console.error('Error obteniendo datos del nodo:', error);
     res.status(500).json({
       success: false,

@@ -173,9 +173,9 @@ function AlertsWidget({ limit = 5, showHeader = true }) {
       <div className="card-body">
         {alerts.length > 0 ? (
           <div className="space-y-3">
-            {alerts.map((alert) => (
+            {alerts.map((alert, index) => (
               <div
-                key={alert.id}
+                key={alert.id || alert._id || index}
                 className="p-4 rounded-lg border bg-white border-gray-200"
               >
                 <div className="flex items-start space-x-3">
