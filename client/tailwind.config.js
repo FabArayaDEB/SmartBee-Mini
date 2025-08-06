@@ -74,6 +74,12 @@ module.exports = {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
         'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
         'large': '0 10px 50px -12px rgba(0, 0, 0, 0.25)',
+        'xl': '0 20px 60px -12px rgba(0, 0, 0, 0.25), 0 8px 30px -8px rgba(0, 0, 0, 0.12)',
+        'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+        'glow': '0 0 20px rgba(249, 168, 37, 0.3)',
+        'glow-lg': '0 0 40px rgba(249, 168, 37, 0.4)',
+        'card-hover': '0 8px 30px -8px rgba(0, 0, 0, 0.12), 0 4px 16px -4px rgba(0, 0, 0, 0.08)',
+        'sidebar': '2px 0 10px rgba(0, 0, 0, 0.1)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
