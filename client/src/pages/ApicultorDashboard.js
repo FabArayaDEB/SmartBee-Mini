@@ -28,7 +28,15 @@ function ApicultorDashboard() {
   const fetchNodes = async () => {
     try {
       const response = await axios.get('/api/nodes');
-      setNodes(response.data.nodes);
+      console.log('Nodos recibidos:', response.data);
+      // Asegurarse de que los datos tengan el formato correcto
+      const formattedNodes = response.data.nodes || response.data;
+      setNodes(formattedNodes.map(node => ({
+        ...node,
+        nodeId: node.id || node.nodeId,
+        name: node.descripcion || node.name,
+        type: node.tipo || node.type
+      })));
     } catch (error) {
       console.error('Error fetching nodes:', error);
     } finally {
@@ -175,7 +183,7 @@ function ApicultorDashboard() {
           <div className="space-y-6">
             <h3 className="text-lg font-medium text-gray-900">Datos en Tiempo Real</h3>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-              {nodes.map((node) => {
+              {nodes.map((node, index) => {
                 const realtimeData = getNodeLatestData(node.nodeId);
                 const data = realtimeData || node.latestData;
                 const status = getNodeStatus(node);
@@ -201,7 +209,7 @@ function ApicultorDashboard() {
                           <SensorWidget
                             key={`${node.nodeId}-temperature`}
                             label="Temperatura"
-                            value={data.data?.temperature || data.temperature}
+                            value={data.temperature}
                             unit="°C"
                             icon="temperature"
                             color="text-danger-600"
@@ -209,16 +217,16 @@ function ApicultorDashboard() {
                           <SensorWidget
                             key={`${node.nodeId}-humidity`}
                             label="Humedad"
-                            value={data.data?.humidity || data.humidity}
+                            value={data.humidity}
                             unit="%"
                             icon="humidity"
                             color="text-secondary-600"
                           />
-                          {node.type === 'colmena' && data.data?.weight && (
+                          {(node.type === 'colmena' || node.type === 'colmena') && data.weight && (
                             <SensorWidget
                               key={`${node.nodeId}-weight`}
                               label="Peso"
-                              value={data.data.weight}
+                              value={data.weight}
                               unit="kg"
                               icon="weight"
                               color="text-primary-600"

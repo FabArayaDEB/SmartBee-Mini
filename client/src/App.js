@@ -33,7 +33,7 @@ function App() {
       {/* Proveedor de contexto de WebSocket para comunicación en tiempo real */}
       <SocketProvider>
         {/* Router principal para navegación SPA */}
-        <Router>
+        <Router future={{ v7_relativeSplatPath: true }}>
           <div className="App min-h-screen bg-gray-50">
             <Routes>
               {/* Rutas públicas - no requieren autenticación */}

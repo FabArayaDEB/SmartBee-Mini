@@ -3,6 +3,18 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-toastify';
 
+// Función para determinar la severidad basada en el tipo de alerta
+const getSeverityFromType = (alertType) => {
+  if (alertType.includes('TEMP_ALTA') || alertType.includes('TEMP_BAJA')) {
+    return 'high';
+  } else if (alertType.includes('HUM_ALTA') || alertType.includes('HUM_BAJA')) {
+    return 'medium';
+  } else if (alertType.includes('PESO_BAJO')) {
+    return 'low';
+  }
+  return 'medium'; // Severidad por defecto
+};
+
 const SocketContext = createContext();
 
 export function SocketProvider({ children }) {
@@ -41,24 +53,34 @@ export function SocketProvider({ children }) {
       // Sensor data events
       newSocket.on('sensorData', (data) => {
         console.log('Datos de sensor recibidos:', data);
+        const nodeId = data.nodeId || Object.keys(data)[0];
         setLatestData(prev => ({
           ...prev,
-          [data.nodeId]: {
+          [nodeId]: {
             ...data,
             timestamp: new Date()
           }
         }));
+        console.log('Datos actualizados:', latestData);
       });
 
       // Alert events
       newSocket.on('newAlert', (alert) => {
         console.log('Nueva alerta recibida:', alert);
-        setAlerts(prev => [alert, ...prev]);
+        
+        // Adaptar el formato de la alerta para que coincida con lo que espera la UI
+        const adaptedAlert = {
+          ...alert,
+          title: alert.type || 'Alerta',
+          severity: getSeverityFromType(alert.type || '')
+        };
+        
+        setAlerts(prev => [adaptedAlert, ...prev]);
         
         // Show toast notification for new alerts
-        const alertMessage = `${alert.title}: ${alert.message}`;
+        const alertMessage = `${adaptedAlert.title}: ${alert.message}`;
         
-        switch (alert.severity) {
+        switch (adaptedAlert.severity) {
           case 'critical':
             toast.error(alertMessage, {
               autoClose: false,
@@ -136,7 +158,9 @@ export function SocketProvider({ children }) {
 
   // Function to get latest data for a specific node
   const getNodeLatestData = (nodeId) => {
-    return latestData[nodeId] || null;
+    console.log('Buscando datos para nodo:', nodeId);
+    console.log('Datos disponibles:', latestData);
+    return latestData[nodeId];
   };
 
   // Function to clear alerts

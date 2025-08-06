@@ -79,6 +79,46 @@ mqttClient.on('message', async (topic, message) => {
     // Verificar si hay condiciones de alerta
     if (data.status === 'alert') {
       console.log(`🚨 ALERTA detectada en nodo ${nodeId}`);
+      
+      // Determinar el tipo de alerta basado en los valores
+      let alertType = '';
+      let alertMessage = '';
+      
+      // Verificar temperatura
+      if (data.temperature > 37) {
+        alertType = 'TEMP_ALTA';
+        alertMessage = `Temperatura alta detectada: ${data.temperature}°C`;
+      } else if (data.temperature < 15) {
+        alertType = 'TEMP_BAJA';
+        alertMessage = `Temperatura baja detectada: ${data.temperature}°C`;
+      }
+      // Verificar humedad
+      else if (data.humidity > 80) {
+        alertType = 'HUM_ALTA';
+        alertMessage = `Humedad alta detectada: ${data.humidity}%`;
+      } else if (data.humidity < 30) {
+        alertType = 'HUM_BAJA';
+        alertMessage = `Humedad baja detectada: ${data.humidity}%`;
+      }
+      // Verificar peso
+      else if (data.weight < 30) {
+        alertType = 'PESO_BAJO';
+        alertMessage = `Peso bajo detectado: ${data.weight}kg`;
+      }
+      
+      // Si se detectó una alerta, emitirla a los clientes
+      if (alertType) {
+        const alertData = {
+          nodeId,
+          type: alertType,
+          message: alertMessage,
+          value: data[alertType.split('_')[0].toLowerCase()],
+          timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        console.log(`Emitiendo alerta: ${alertType} - ${alertMessage}`);
+        io.emit('newAlert', alertData);
+      }
     }
     
     // Enviar datos en tiempo real a todos los clientes conectados via WebSocket
